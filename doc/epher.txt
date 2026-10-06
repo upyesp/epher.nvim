@@ -1,0 +1,105 @@
+*epher.txt*     Neovim glue for the epher calculator language
+
+Author:         epher contributors
+License:        MIT (https://github.com/upyesp/epher/blob/main/LICENSE)
+
+==============================================================================
+CONTENTS                                                *epher-contents*
+
+    1. Introduction ................ |epher-intro|
+    2. Setup ....................... |epher-setup|
+    3. Commands .................... |epher-commands|
+    4. The results window .......... |epher-results|
+    5. Inline answers .............. |epher-inlay|
+    6. Requirements ................ |epher-requirements|
+    7. Health check ................ |epher-health|
+
+==============================================================================
+1. Introduction                                          *epher-intro*
+
+epher is a calculator language: you write ordinary math, with units
+that convert, and every statement's answer appears inline, right next
+to the line that produced it. This plugin is the Neovim glue for the
+shared `epher-lsp` language server: it attaches the server to `.epher`
+buffers, turns on inline answers, and adds `:EpherRun`.
+
+Open a `.epher` file and the answers are already there. No repl in a
+side panel, no print statements: the editor is the calculator.
+
+==============================================================================
+2. Setup                                                 *epher-setup*
+
+Call once, from anywhere in your config: >
+
+    require("epher").setup({
+      cmd = { "epher-lsp" },  -- or a full path
+    })
+<
+                                                *epher-setup-cmd*
+cmd             (table, default `{ "epher-lsp" }`) The command that
+                starts the language server. Use a full path when the
+                binary is not on PATH.
+
+                                                *epher-setup-pane*
+pane            (string, default `"split"`) Where `:EpherRun` puts the
+                results: `"split"` opens a vertical split beside the
+                script, `"float"` opens a right-anchored floating
+                window.
+
+On Neovim 0.11 and newer the plugin registers through the native
+`vim.lsp.config` / `vim.lsp.enable` pair; on 0.9 and 0.10 it attaches
+through `vim.lsp.start` on the FileType event. The difference is
+internal; `setup()` is the same everywhere.
+
+==============================================================================
+3. Commands                                              *epher-commands*
+
+                                                                *:EpherRun*
+:EpherRun
+    Run the current epher script: one `epher/run` request to the
+    attached server, results in the results window beside the script
+    (|epher-results|). Graphs are written as SVG files under
+    `stdpath("cache")/epher/runs` and opened with the system viewer as
+    they are written. Running from the results window re-runs the
+    script the window belongs to.
+
+==============================================================================
+4. The results window                                    *epher-results*
+
+One fresh scratch buffer per run, named `epher results: <file>`, one
+row per statement that produced something, error rows highlighted.
+
+<CR>            Jump to the row's statement in the script; on a graph
+                row, reopen the row's SVG with the system viewer.
+
+==============================================================================
+5. Inline answers                                         *epher-inlay*
+
+The inline answers are language-server inlay hints. On Neovim 0.11 and
+newer the plugin enables `vim.lsp.inlay_hint` for every epher buffer.
+On 0.9 and 0.10 there are no inlay hints, and the answers appear in
+the results window instead. Turn them off for a buffer with: >
+
+    :lua vim.lsp.inlay_hint.enable(false, { bufnr = 0 })
+<
+
+==============================================================================
+6. Requirements                                       *epher-requirements*
+
+- Neovim 0.9 or newer. Inline answers need 0.11 or newer.
+- The `epher-lsp` binary for your platform, on PATH or named in
+  |epher-setup-cmd|. Without it, `.epher` files get highlighting only.
+  Download the build for your operating system from the releases page:
+  https://github.com/upyesp/epher/releases/latest
+- Filetype detection, syntax, and buffer settings ship in this plugin
+  (`ftdetect/`, `ftplugin/`, `syntax/`), synced from clients/vim in
+  the epher monorepo.
+
+==============================================================================
+7. Health check                                          *epher-health*
+
+Run `:checkhealth epher` to check the Neovim version, the
+`epher-lsp` binary, and the runtime files.
+
+==============================================================================
+vim:tw=78:ts=8:noet:ft=help:norl:
