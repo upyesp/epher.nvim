@@ -32,11 +32,6 @@ local has_lsp_config = vim.lsp.config ~= nil
 --- The results buffer of the last run, so a rerun replaces it
 --- instead of stacking windows.
 local results_buf = nil
---- The buffer of the last run. Focus lands in the results pane after
---- a run, and rerunning from there should just work: it re-runs this
---- one, not whatever the pane happens to be.
-local last_run = nil
-
 --- The epher clients attached to a buffer. 0.10 renamed
 --- get_active_clients to get_clients; same filter arguments.
 local function epher_clients(bufnr)
@@ -229,16 +224,19 @@ function M.run()
   local bufnr = vim.api.nvim_get_current_buf()
   if vim.bo[bufnr].filetype ~= "epher" then
     -- Running from the results pane (where a run leaves the cursor)
-    -- re-runs the script the pane belongs to.
-    if last_run ~= nil and vim.api.nvim_buf_is_valid(last_run)
-      and vim.bo[last_run].filetype == "epher" then
-      bufnr = last_run
+    -- re-runs the script the pane belongs to: the pane's own recorded
+    -- source (epher_src_bufnr, the same link the <CR> jump follows),
+    -- never a shared "last run" that a run elsewhere could re-point
+    -- and make this pane execute the wrong script.
+    local ok, src = pcall(vim.api.nvim_buf_get_var, bufnr, "epher_src_bufnr")
+    if ok and type(src) == "number" and vim.api.nvim_buf_is_valid(src)
+      and vim.bo[src].filetype == "epher" then
+      bufnr = src
     else
       vim.notify("epher: the current buffer is not an epher script", vim.log.levels.WARN)
       return
     end
   end
-  last_run = bufnr
   local clients = epher_clients(bufnr)
   local client = clients[1]
   if client == nil then
