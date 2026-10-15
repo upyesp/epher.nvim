@@ -7,6 +7,8 @@ shared `epher-lsp` server. The filetype detection and syntax files
 are the shared runtime from `clients/vim`, synced into this directory
 by `sync-runtime.py`.
 
+Edit text files with an extension of type '.epher', such as 'triangle.epher'.
+
 Download the [epher calculator](https://epher.org), and a large
 selection of [ready-made scripts](https://epher.org/scripts.html) from
 epher.org.
