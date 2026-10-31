@@ -1,6 +1,6 @@
 " Vim syntax for epher: the configuration-level view of the language
 " (ADR-0066 ships Neovim and Vim as ready-made configs, not plugins).
-" The twenty keywords mirror crates/core KEYWORDS; numbers cover
+" The twenty-one keywords mirror crates/core KEYWORDS; numbers cover
 " decimal, scientific, the 0b/0o/0x bases, and the imaginary `i`
 " suffix; strings honor the five escapes; unit suffixes are matched
 " conservatively (identifier immediately after a number with no
@@ -29,7 +29,7 @@ syntax match epherNumber "\v<\d+(\.\d+)?([eE][-+]?\d+)?>"
 syntax match epherNumber "\v<\d+(\.\d+)?([eE][-+]?\d+)?i>"
 
 " Keywords (crates/core KEYWORDS, verbatim).
-syntax keyword epherKeyword and break const continue def do else end for if in not or return solve step then to while xor
+syntax keyword epherKeyword and break const continue def do else end for if in not or return share solve step then to while xor
 
 " Statement commands (graph, graph3d, solar3d, save, table): not
 " grammar keywords, but a line opening with one is a shell-level
