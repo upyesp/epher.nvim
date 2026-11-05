@@ -67,10 +67,21 @@ internal; `setup()` is the same everywhere.
 4. The results window                                    *epher-results*
 
 One fresh scratch buffer per run, named `epher results: <file>`, one
-row per statement that produced something, error rows highlighted.
+row per statement that produced something. The run's pane
+presentation (ADR-0078) renders with Neovim's own means: setup echo
+dim, failures red, verdict glyphs (✓/✗), matrices as padded grids,
+long lists folded with their hidden tail (open with `zo`, close
+with `zc`), and the run's answer bold, with the cursor on it.
 
 <CR>            Jump to the row's statement in the script; on a graph
                 row, reopen the row's SVG with the system viewer.
+y               Yank the row's verbatim output; copy never sees the
+                shaped text (ADR-0078's first rule).
+
+Waiting on a row whose shaped text hides the verbatim output
+(wrapped, gridded, or folded rows) shows the verbatim output in a
+small float; it goes when the cursor moves. The wait is
+'updatetime'.
 
 ==============================================================================
 5. Inline answers                                         *epher-inlay*

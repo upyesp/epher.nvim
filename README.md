@@ -47,11 +47,15 @@ side panel, no print statements: the editor *is* the calculator.
   file.
 - **Run the script**: `:EpherRun` sends the same `epher/run` request
   the VS Code results pane uses and opens a results window beside the
-  script, one row per statement, errors marked. `<CR>` on a row jumps
-  to its statement; `<CR>` on a graph row reopens its SVG; rerunning
-  from the results window re-runs the script. `setup({ pane = "float"
-  })` puts the results in a floating window instead of a vertical
-  split.
+  script, one row per statement, rendered with the result pane's
+  presentation: setup echo dim, failures red, verdict glyphs,
+  matrices as padded grids, long lists folded, and the run's answer
+  bold under the cursor. `<CR>` on a row jumps to its statement;
+  `<CR>` on a graph row reopens its SVG; `y` yanks the row's
+  verbatim output; waiting on a row shows the verbatim output the
+  shaped text hides. Rerunning from the results window re-runs the
+  script. `setup({ pane = "float" })` puts the results in a floating
+  window instead of a vertical split.
 
 ![The results window after :EpherRun, with the transcript and the graph path](images/results.png)
 
