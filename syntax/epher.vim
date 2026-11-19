@@ -21,12 +21,12 @@ syntax keyword epherTodo contained TODO FIXME XXX NOTE
 syntax match epherStringEscape "\\[ntr\\\"]" contained
 syntax region epherString start=+"+ skip=+\\.+ end=+"+ contains=epherStringEscape
 
-" Numbers: decimal, scientific, 0b/0o/0x, and the imaginary `i`.
-syntax match epherNumber "\v<0[bB][01]+>"
-syntax match epherNumber "\v<0[oO][0-7]+>"
-syntax match epherNumber "\v<0[xX][0-9a-fA-F]+>"
+" Numbers: decimal, scientific, 0b/0o/0x, and the imaginary units `i`, `j`, `k`.
+syntax match epherNumber "\v<0[bB][01]+([ijk])?>"
+syntax match epherNumber "\v<0[oO][0-7]+([ijk])?>"
+syntax match epherNumber "\v<0[xX][0-9a-fA-F]+([ijk])?>"
 syntax match epherNumber "\v<\d+(\.\d+)?([eE][-+]?\d+)?>"
-syntax match epherNumber "\v<\d+(\.\d+)?([eE][-+]?\d+)?i>"
+syntax match epherNumber "\v<\d+(\.\d+)?([eE][-+]?\d+)?([ijk])>"
 
 " Keywords (crates/core KEYWORDS, verbatim).
 syntax keyword epherKeyword and break const continue def do else end for if in not or return share solve step then to while xor
