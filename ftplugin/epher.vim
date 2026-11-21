@@ -90,7 +90,7 @@ if !exists("g:loaded_epher_ftplugin_run")
   function! s:epher_rerun() abort
     let l:src = getbufvar(bufnr("%"), "epher_src_bufnr", -1)
     if l:src >= 0 && bufexists(l:src)
-      call s:EpherRun(l:src)
+      call EpherRun(l:src)
     endif
   endfunction
 
@@ -431,11 +431,29 @@ if !exists("g:loaded_epher_ftplugin_run")
 
   " Runs the script in a:bufnr (default: the current buffer, or the
   " script behind the results pane) through the attached server.
+  " Since ADR-0088 the buffer can also be a markdown document: opt
+  " in with let g:epher_markdown = 1, and a markdown buffer runs
+  " when it carries an epher fence with content (the gate below;
+  " prose-only markdown stays untouched even when opted in). The
+  " server receives the buffer through vim-lsp, whose didOpen
+  " languageId is the buffer's filetype, "markdown", exactly the
+  " kind the server projects on.
+  function! s:runnable(bufnr) abort
+    let l:ft = getbufvar(a:bufnr, "&filetype")
+    if l:ft ==# "epher"
+      return 1
+    endif
+    if l:ft ==# "markdown" && get(g:, "epher_markdown", 0)
+      return exists("*EpherHasEpherFence") && EpherHasEpherFence(a:bufnr)
+    endif
+    return 0
+  endfunction
+
   function! EpherRun(...) abort
     let l:bufnr = a:0 > 0 && a:1 > 0 ? a:1 : bufnr("%")
-    if getbufvar(l:bufnr, "&filetype") !=# "epher"
+    if !s:runnable(l:bufnr)
       let l:src = getbufvar(l:bufnr, "epher_src_bufnr", -1)
-      if l:src >= 0 && bufexists(l:src) && getbufvar(l:src, "&filetype") ==# "epher"
+      if l:src >= 0 && bufexists(l:src) && s:runnable(l:src)
         let l:bufnr = l:src
       else
         echom "epher: the current buffer is not an epher script"
@@ -460,4 +478,72 @@ if !exists("g:loaded_epher_ftplugin_run")
   endfunction
 endif
 
-command! -buffer EpherRun call EpherRun()
+" The command is global (not -buffer) so the markdown opt-in above
+" can reach it: a markdown buffer never loads this ftplugin, and a
+" buffer-local command defined here would never be visible there.
+command! EpherRun call EpherRun()
+
+" The fence scanner the markdown gate uses (ADR-0088), defined once
+" globally so a markdown buffer can call it: does the buffer carry
+" one epher fence with content? It mirrors the server's fence
+" grammar exactly (a deliberate copy, crates/lsp/src/markdown.rs):
+" up to three leading spaces, three or more of one fence character,
+" the info string's first word equal to epher case-insensitively, a
+" backtick info string may not contain a backtick, a closing fence
+" is the same character at least as long with nothing else on the
+" line, and an unclosed fence runs to end of file. Fence lines
+" inside another (non-epher) fence are content, not fence lines, so
+" the walk tracks the enclosing fence. Defined on the first epher
+" buffer of the session; markdown buffers without one never see
+" this and stay plain markdown.
+if !exists("g:loaded_epher_ftplugin_markdown")
+  let g:loaded_epher_ftplugin_markdown = 1
+
+  function! EpherHasEpherFence(bufnr) abort
+    let l:fence_char = ""
+    let l:fence_len = 0
+    let l:in_epher = 0
+    let l:content = 0
+    for l:line in getbufline(a:bufnr, 1, "$")
+      if l:fence_char ==# ""
+        let l:indent = matchstr(l:line, '^ *')
+        if len(l:indent) <= 3
+          let l:stripped = l:line[len(l:indent):]
+          let l:marker = matchstr(l:stripped, '^`\{3,}')
+          if empty(l:marker)
+            " \~: in a vim pattern a bare ~ means the last substitute
+            " pattern, so the literal tilde needs its escape.
+            let l:marker = matchstr(l:stripped, '^\~\{3,}')
+          endif
+          if !empty(l:marker)
+            let l:ch = l:marker[0]
+            let l:info = l:stripped[len(l:marker):]
+            if !(l:ch ==# '`' && l:info =~# '`')
+              let l:fence_char = l:ch
+              let l:fence_len = len(l:marker)
+              let l:word = matchstr(l:info, '^\s*\zs\S\+')
+              let l:in_epher = (l:word ==? "epher")
+              let l:content = 0
+            endif
+          endif
+        endif
+      else
+        let l:indent = matchstr(l:line, '^ *')
+        let l:rest = l:line[len(l:indent):]
+        " escape(~): same substitution rule as above, for closing
+        " tilde fences.
+        let l:run = matchstr(l:rest, '^' . escape(l:fence_char, '~') . '\+')
+        if !empty(l:run) && len(l:run) >= l:fence_len && l:rest[len(l:run):] =~# '^\s*$'
+          if l:in_epher && l:content
+            return 1
+          endif
+          let l:fence_char = ""
+          let l:in_epher = 0
+        elseif l:in_epher
+          let l:content = 1
+        endif
+      endif
+    endfor
+    return l:in_epher && l:content
+  endfunction
+endif

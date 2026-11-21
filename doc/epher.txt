@@ -26,6 +26,11 @@ buffers, turns on inline answers, and adds `:EpherRun`.
 Open a `.epher` file and the answers are already there. No repl in a
 side panel, no print statements: the editor is the calculator.
 
+Since ADR-0088 the server also attaches to markdown buffers that
+carry an epher fence with content: the fences are the script, and
+every feature works in the document's own coordinates. Prose-only
+markdown never attaches. See |epher-setup-markdown|.
+
 ==============================================================================
 2. Setup                                                 *epher-setup*
 
@@ -45,6 +50,19 @@ pane            (string, default `"split"`) Where `:EpherRun` puts the
                 results: `"split"` opens a vertical split beside the
                 script, `"float"` opens a right-anchored floating
                 window.
+
+                                                *epher-setup-markdown*
+markdown        (boolean, default `true`) Whether epher fences inside
+                markdown buffers are treated as a script (ADR-0088).
+                When on, a markdown buffer attaches the language
+                server only after a fence scan finds an epher fence
+                with content, so prose-only markdown never spawns a
+                server. Neovim sends the buffer's filetype ("markdown")
+                as the didOpen language id, which is exactly the kind
+                the server projects on. Disable with:
+  >
+      require("epher").setup({ markdown = false })
+  <
 
 On Neovim 0.11 and newer the plugin registers through the native
 `vim.lsp.config` / `vim.lsp.enable` pair; on 0.9 and 0.10 it attaches

@@ -33,6 +33,65 @@ M.augroup = vim.api.nvim_create_augroup("epher-results", { clear = false })
 --- check, the way the emacs client keys off its jsonrpc version.
 local has_lsp_config = vim.lsp.config ~= nil
 
+--- The markdown gate (ADR-0088): does the buffer carry one epher
+--- fence with content? Mirrors the server's fence grammar exactly
+--- (crates/lsp/src/markdown.rs): up to three leading spaces, three
+--- or more of one fence character, the info string's first word is
+--- "epher" case-insensitively, a backtick info string may not hold
+--- a backtick, a closing fence is the same character at least as
+--- long with nothing else on the line, and an unclosed fence runs
+--- to end of file. Fence lines inside another (non-epher) fence are
+--- content, not fence lines, so the walk tracks the enclosing fence.
+local function has_epher_fence(bufnr)
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local fence_char, fence_len
+  local in_epher, epher_content = false, false
+  for _, line in ipairs(lines) do
+    if fence_char == nil then
+      local indent = line:match("^ *") or ""
+      if #indent <= 3 then
+        local stripped = line:sub(#indent + 1)
+        local marker = stripped:match("^`{3,}") or stripped:match("^~{3,}")
+        if marker then
+          local ch = marker:sub(1, 1)
+          local info = stripped:sub(#marker + 1)
+          if not (ch == "`" and info:find("`", 1, true)) then
+            fence_char, fence_len = ch, #marker
+            local word = info:match("^%s*(%S*)") or ""
+            in_epher = word:lower() == "epher"
+            epher_content = false
+          end
+        end
+      end
+    else
+      -- The closing fence: at least as long a run of the same
+      -- character, nothing else on the line.
+      local lead = line:match("^ *") or ""
+      local rest = line:sub(#lead + 1)
+      local run = rest:match("^" .. fence_char .. "+")
+      if run and #run >= fence_len and rest:sub(#run + 1):match("^%s*$") then
+        if in_epher and epher_content then return true end
+        fence_char, fence_len = nil, nil
+        in_epher = false
+      elseif in_epher then
+        epher_content = true
+      end
+    end
+  end
+  -- An epher fence never closed runs its content to end of file.
+  return in_epher and epher_content
+end
+
+--- Whether the epher tooling attaches: an epher buffer always, a
+--- markdown buffer when it carries an epher fence with content.
+--- Prose-only markdown never sees a server, a run, or inline
+--- answers.
+local function is_runnable(bufnr)
+  if vim.bo[bufnr].filetype == "epher" then return true end
+  if vim.bo[bufnr].filetype ~= "markdown" then return false end
+  return has_epher_fence(bufnr)
+end
+
 --- The results buffer of the last run, so a rerun replaces it
 --- instead of stacking windows.
 local results_buf = nil
@@ -488,7 +547,7 @@ end
 --- attached language server, results in the pane.
 function M.run()
   local bufnr = vim.api.nvim_get_current_buf()
-  if vim.bo[bufnr].filetype ~= "epher" then
+  if not is_runnable(bufnr) then
     -- Running from the results pane (where a run leaves the cursor)
     -- re-runs the script the pane belongs to: the pane's own recorded
     -- source (epher_src_bufnr, the same link the <CR> jump follows),
@@ -496,7 +555,7 @@ function M.run()
     -- and make this pane execute the wrong script.
     local ok, src = pcall(vim.api.nvim_buf_get_var, bufnr, "epher_src_bufnr")
     if ok and type(src) == "number" and vim.api.nvim_buf_is_valid(src)
-      and vim.bo[src].filetype == "epher" then
+      and is_runnable(src) then
       bufnr = src
     else
       vim.notify("epher: the current buffer is not an epher script", vim.log.levels.WARN)
@@ -564,6 +623,7 @@ end
 function M.setup(opts)
   opts = opts or {}
   M.pane = opts.pane or "split"
+  M.markdown = opts.markdown ~= false
   local cmd = opts.cmd or { "epher-lsp" }
 
   if has_lsp_config then
@@ -598,6 +658,40 @@ function M.setup(opts)
       if vim.bo[bufnr].filetype == "epher" and vim.api.nvim_buf_get_name(bufnr) ~= "" then
         attach(bufnr)
       end
+    end
+  end
+
+  -- Markdown (ADR-0088): epher fences inside markdown buffers are a
+  -- script. vim.lsp.start serves both Neovim generations here: the
+  -- enable path above stays keyed to epher filetypes, and a markdown
+  -- buffer joins only after the fence scan passes, so prose-only
+  -- markdown never spawns a server. Neovim sends the buffer's
+  -- filetype as the didOpen languageId, which is exactly the
+  -- "markdown" the server projects on. Disable with
+  -- setup({ markdown = false }).
+  if M.markdown then
+    local function attach_markdown(bufnr)
+      if vim.bo[bufnr].filetype ~= "markdown" then return end
+      if not has_epher_fence(bufnr) then return end
+      vim.lsp.start({
+        name = "epher",
+        cmd = cmd,
+        root_dir = buffer_root(bufnr),
+      }, { bufnr = bufnr })
+      if vim.lsp.inlay_hint then
+        vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
+      end
+    end
+    vim.api.nvim_create_autocmd("FileType", {
+      pattern = "markdown",
+      callback = function(args)
+        attach_markdown(args.buf)
+      end,
+      desc = "epher: attach the language server to markdown with an epher fence",
+    })
+    -- Buffers that were already open when setup() ran.
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      attach_markdown(bufnr)
     end
   end
 

@@ -63,6 +63,13 @@ side panel, no print statements: the editor *is* the calculator.
   semantic tokens today, so coloring comes from the shared regex
   syntax in `clients/vim`, the conservative approximation of the
   parser's unit rule.
+- **Markdown**: epher code fences inside markdown files get the same
+  treatment (ADR-0088). The server projects the document's epher
+  fences into one virtual script and serves answers, diagnostics,
+  hover, completion, and `:EpherRun` in the document's own
+  coordinates. A markdown buffer attaches only when it carries an
+  epher fence with content, so prose-only markdown (any README)
+  never spawns a server. Disable with `setup({ markdown = false })`.
 
 ## Install
 
